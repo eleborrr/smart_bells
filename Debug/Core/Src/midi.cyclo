@@ -1,0 +1,9 @@
+midi.c:11:5:parseFile	5
+midi.c:48:6:readHeader	5
+midi.c:89:5:parse_midi	13
+midi.c:160:6:events_post_proccessing	10
+midi.c:225:6:AddDelayForAllExcept	3
+midi.c:233:6:MidiSwap	1
+midi.c:239:5:adjust_delta_time	1
+midi.c:244:5:get_note_ticks_delay	2
+midi.c:257:5:count_ticks_of_delay	1

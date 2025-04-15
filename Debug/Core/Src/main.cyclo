@@ -1,0 +1,17 @@
+main.c:80:6:shift_reg_init	1
+main.c:85:6:put_val_to_shift_reg	2
+main.c:98:6:clear_shift_reg	1
+main.c:123:6:send_uart	1
+main.c:129:5:bufsize	2
+main.c:135:6:bufclear	2
+main.c:143:6:get_sd_dirs	10
+main.c:184:6:test_midi_play	11
+main.c:321:9:writeFlash	3
+main.c:372:6:readFlash	2
+main.c:388:5:main	3
+main.c:450:6:SystemClock_Config	3
+main.c:496:13:MX_SPI3_Init	2
+main.c:534:13:MX_TIM2_Init	4
+main.c:579:13:MX_UART4_Init	2
+main.c:612:13:MX_GPIO_Init	1
+main.c:666:6:Error_Handler	1

@@ -1,0 +1,9 @@
+../Core/Src/midi.c:11:5:parseFile	120040	static
+../Core/Src/midi.c:48:6:readHeader	48	static
+../Core/Src/midi.c:89:5:parse_midi	72	static
+../Core/Src/midi.c:160:6:events_post_proccessing	48	static
+../Core/Src/midi.c:225:6:AddDelayForAllExcept	32	static
+../Core/Src/midi.c:233:6:MidiSwap	40	static
+../Core/Src/midi.c:239:5:adjust_delta_time	32	static
+../Core/Src/midi.c:244:5:get_note_ticks_delay	56	static
+../Core/Src/midi.c:257:5:count_ticks_of_delay	56	static
