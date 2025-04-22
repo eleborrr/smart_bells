@@ -1,14 +1,13 @@
-typedef struct MTHD_CHUNK
+typedef struct
 {
    /* Here's the 8 byte header that all chunks must have */
-   char           ID[4];  /* This will be 'M','T','h','d' */
-   unsigned long  Length; /* This will be 6 */
+   char     ID[4];  /* This will be 'M','T','h','d' */
+   uint32_t Length; /* This will be 6 */
 
-   /* Here are the 6 bytes */
-   unsigned short Format;
-   unsigned short NumTracks;
-   unsigned short Division;
-};
+   uint16_t Format;
+   uint16_t NumTracks;
+   uint16_t Division;
+} MTHD_CHUNK;
 
 typedef enum {
     MIDI_NOTE_OFF = 0x80,
@@ -40,9 +39,10 @@ typedef struct {
 	uint32_t delta_time;
 } NoteDelay;
 
-void readHeader(char *buffer);
+void test_midi_play();
+void init_parser();
 void events_post_proccessing(MidiEvent* events, int events_size);
-int parse_midi(uint8_t* midi_data, uint32_t data_size, MidiEvent* events, uint32_t max_events);
+void read_midi_header(uint8_t* midi_data, uint32_t data_size);
 void MidiSwap(MidiEvent* events, int i, int j);
 void AddDelayForAllExcept(int delay, int except, MidiEvent* events, int events_size);
 int adjust_delta_time(MidiEvent note);

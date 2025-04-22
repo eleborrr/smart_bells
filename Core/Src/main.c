@@ -26,21 +26,12 @@
 #include "string.h"
 #include "stdlib.h"
 #include "midi.h"
+#include "flash_service.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
-// Адрес страницы, куда будут сохраняться структуры
-#define flashADDR   0x08022000
-/*----------------------------------------------------------------------------*/
-// Тестовая структура для записи
-struct
-{
-	uint8_t  var1;
-	uint16_t var2;
-	uint32_t var3;
-	double   var4;
-} test_struct;
+
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
@@ -179,206 +170,6 @@ void get_sd_dirs(char *path){
 	  }
 	}
 }
-
-
-void test_midi_play(){
-//    MidiEvent midiEvents[60];
-
-    uint32_t currentTime = 0; // Текущее время в тиках
-//	uint8_t baseNote = 60; // Средняя C (C4)
-//	uint8_t channel = 0;
-
-	// Массив степеней двойки (2^0, 2^1, ..., 2^8)
-//	const uint8_t powerOfTwoNotes[] = {1, 2, 4, 8, 16, 32, 64, 128};
-//	const int numNotes = sizeof(powerOfTwoNotes) / sizeof(powerOfTwoNotes[0]);
-
-	// Установим случайный seed для вариативности
-//	srand(42); // Можно заменить на time(NULL) для разных последовательностей
-
-//	for (int eventCount = 0; eventCount < 59; eventCount++) {
-//		// Случайные параметры ноты (в пределах разумного)
-//		uint8_t note = powerOfTwoNotes[rand() % numNotes];
-//		uint8_t velocity = 70 + (rand() % 50); // Velocity между 70 и 120
-//		uint16_t duration = 100 + (rand() % 400); // Длительность ноты
-//		uint16_t pause = 50 + (rand() % 200); // Пауза перед следующей нотой
-//
-//		// NOTE ON событие
-//		midiEvents[eventCount].type = MIDI_NOTE_ON;
-//		midiEvents[eventCount].data.note.channel = channel;
-//		midiEvents[eventCount].data.note.note = note;
-//		midiEvents[eventCount].data.note.velocity = velocity;
-//		midiEvents[eventCount].data.note.delta_time = (eventCount == 0) ? 0 : pause; // Первая нота без задержки
-//		eventCount++;
-//
-//		// NOTE OFF событие
-//		midiEvents[eventCount].type = MIDI_NOTE_OFF;
-//		midiEvents[eventCount].data.note.channel = channel;
-//		midiEvents[eventCount].data.note.note = note;
-//		midiEvents[eventCount].data.note.velocity = 0;
-//		midiEvents[eventCount].data.note.delta_time = duration;
-//	}
-
-
-    FIL file;
-    FRESULT res;
-    UINT bytesRead, bytesWritten;
-	char consoleOutput[128];
-
-    uint8_t fileBuffer[1024];
-
-//    FILE *fileptr;
-//	uint8_t *buffer;
-//	long filelen;
-	MidiEvent midiEvents[100];
-
-
-	res = f_open(&file, "random.mid", FA_READ);
-	if (res != FR_OK) {
-		sprintf(consoleOutput, "Ошибка открытия файла: %d\n\r", res);
-		send_uart(consoleOutput);
-		return;
-	}
-
-	int c = 0;
-
-	put_val_to_shift_reg(16);
-
-	while (1) {
-		res = f_read(&file, fileBuffer, sizeof(fileBuffer), &bytesRead);
-
-		// Проверяем ошибки и конец файла
-		if (res != FR_OK || bytesRead == 0 || c == 1024) {
-			break;
-		}
-		c++;
-
-		// Обрабатываем прочитанные данные
-//		send_uart("Прочитано %d байт:\n", bytesRead);
-//		for (UINT i = 0; i < bytesRead; i++) {
-//			send_uart("%02X ", fileBuffer[i]);
-//		}
-		send_uart("\n\r");
-	}
-
-	// Закрываем файл
-	f_close(&file);
-
-
-//	fileptr = fopen("nggyu.mid", "rb");  // Open the file in binary mode
-//	fseek(fileptr, 0, SEEK_END);          // Jump to the end of the file
-//	filelen = ftell(fileptr);             // Get the current byte offset in the file
-//	rewind(fileptr);                      // Jump back to the beginning of the file
-
-//	buffer = (char *)malloc(filelen * sizeof(char)); // Enough memory for the file
-//	fread(buffer, 1, filelen, fileptr); // Read in the entire file
-    parse_midi(fileBuffer, 1024, midiEvents, 1024);
-    uint16_t output = 0;
-    clear_shift_reg();
-
-
-    for(int i = 0; i < sizeof(midiEvents); i++){
-    	currentTime += midiEvents[i].delta_time;
-
-		while (HAL_GetTick() < currentTime) {}
-
-		MidiEvent curEvent = midiEvents[i];
-		if (curEvent.type == MIDI_NOTE_ON){
-			output = output | (1 << (curEvent.data.note.note % 48));
-			put_val_to_shift_reg(output);
-			sprintf(consoleOutput, "MIDI NOTE ON = %d ON CHANNEL = %d\n\r", curEvent.data.note.note, curEvent.data.note.channel);
-			send_uart(consoleOutput);
-			sprintf(consoleOutput, "output = %d\n\r", output);
-			send_uart(consoleOutput);
-
-		} else  if(curEvent.type == MIDI_NOTE_OFF){
-			if (output > 0)
-				output = output & (~(1 << curEvent.data.note.note % 48));
-			sprintf(consoleOutput, "MIDI NOTE OFF = %d ON CHANNEL = %d\n\r", curEvent.data.note.note, curEvent.data.note.channel);
-			send_uart(consoleOutput);
-			put_val_to_shift_reg(output);
-			sprintf(consoleOutput, "output = %d\n\r", output);
-			send_uart(consoleOutput);
-//			clear_shift_reg();
-		}
-		else if (curEvent.type == MIDI_SET_TEMPO){
-			sprintf(consoleOutput, "MIDI SET TEMPO = %d\n\r", curEvent.data.tempo.tempo);
-			send_uart(consoleOutput);
-		}
-		else{
-			sprintf(consoleOutput, "%d\n\r", curEvent.type);
-			send_uart(consoleOutput);
-		}
-//		HAL_Delay(1000);
-    }
-    clear_shift_reg();
-}
-
-/**
- * @brief Функция записывает структуру "test_struct" во flash память микроконтроллера
- * @param addr - адрес в памяти микроконтроллера
- * @return статус операции
- */
-uint8_t writeFlash (uint32_t addr)
-{
-//	HAL_StatusTypeDef status;
-	uint32_t structureSize = sizeof(test_struct);          // замеряем размер структуры
-//	FLASH_EraseInitTypeDef FlashErase;                     // структура для функции стирания страницы
-//	uint32_t sectorError = 0;                              // переменная для записи информации об ошибках в процессе стирания
-
-	uint32_t *dataPtr = (uint32_t *)&test_struct;          // создаем указатель на нашу структуру и записываем ее кусочками по 32 бита
-
-
-	FLASH_Erase_Sector(FLASH_SECTOR_5, FLASH_VOLTAGE_RANGE_1);
-	HAL_FLASH_Unlock();                                    // разлочить память
-
-	for (uint8_t i = 0; i < structureSize / 4; i++)
-	{
-		if(HAL_FLASH_Program(FLASH_TYPEPROGRAM_WORD, addr, dataPtr[i]) != HAL_OK)
-				return 1;
-		addr += 4;
-	}
-
-	HAL_FLASH_Lock();
-
-	return 0;
-
-
-//	FlashErase.TypeErase = FLASH_TYPEERASE_SECTORS;
-//	FlashErase.NbSectors = 1;
-//	FlashErase.Sector = FLASH_SECTOR_5;
-//	FlashErase.VoltageRange = VOLTAGE_RANGE_3;
-//	if (HAL_FLASHEx_Erase(&FlashErase, &sectorError) != HAL_OK)   // вызов функции стирания
-//	{
-//		HAL_FLASH_Lock();                                  // если не смог стереть, то закрыть память и вернуть ошибку
-//        __enable_irq();
-//		return HAL_ERROR;
-//	}
-//	uint32_t *dataPtr = (uint32_t *)&test_struct;          // создаем указатель на нашу структуру и записываем ее кусочками по 32 бита
-//	for (uint8_t i = 0; i < structureSize / 4; i++)
-//	{
-//		status += HAL_FLASH_Program(FLASH_TYPEPROGRAM_WORD, addr, dataPtr[i]);
-//		addr += 4;
-//	}
-//	__enable_irq();                                        // включаем прерывания обратно
-//	return status;
-}
-
-
-/*----------------------------------------------------------------------------*/
-/**
- * @brief функция считывает значения структуры "test_struct", записанные ранее во flash
- * @param addr - адрес в памяти микроконтроллера
- */
-void readFlash (uint32_t addr)
-{
-	uint32_t structureSize = sizeof(test_struct);
-	uint32_t *dataPtr = (uint32_t *)&test_struct;
-	for (int i = 0; i < structureSize / 4; i++)
-	{
-		dataPtr[i] = *(__IO uint32_t*)addr;
-		addr += 4;
-	}
-}
 /* USER CODE END 0 */
 
 /**
@@ -414,20 +205,19 @@ int main(void)
   MX_SPI3_Init();
   MX_UART4_Init();
   /* USER CODE BEGIN 2 */
-  send_uart ("Lift off\n");
+  send_uart ("Lift off\n\r");
   /* Mount SD Card*/
   fresult = f_mount(&fs, "", 0);
-  if (fresult != FR_OK) send_uart ("error in mounting SD CARD ... \n");
-  else send_uart("SD CARD mounted successfully...\n");
-
+  if (fresult != FR_OK) send_uart ("error in mounting SD CARD ... \n\r");
+  else send_uart("SD CARD mounted successfully...\n\r");
   /* Read dirs from sd card*/
+//  test_midi_play();
+  init_parser();
   get_sd_dirs("");
-  test_midi_play();
 
   /* Unmount SDCARD */
   fresult = f_mount(NULL, "/", 1);
-  if (fresult == FR_OK) send_uart ("SD CARD UNMOUNTED successfully...\n");
-
+  if (fresult == FR_OK) send_uart ("SD CARD UNMOUNTED successfully...\n\r");
 
   /* USER CODE END 2 */
 

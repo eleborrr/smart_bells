@@ -3,10 +3,155 @@
 #include <stdint.h>
 #include <string.h>
 #include <midi.h>
+#include <flash_service.h>
+#include "fatfs.h"
+#include <settings_manager.h>
 
-const uint16_t PPQN = 500;
+uint16_t PPQN = 500;
 const uint8_t BPM = 120;
 const float TEMPO_MKS = 500000;
+
+void test_midi_play(){
+    uint32_t currentTime = 0; // Текущее время в тиках
+
+    FIL file;
+    FRESULT res;
+    UINT bytesRead, bytesWritten;
+	char consoleOutput[128];
+
+    uint8_t fileBuffer[1024];
+
+	MidiEvent midiEvents[100];
+
+
+	res = f_open(&file, "random.mid", FA_READ);
+	if (res != FR_OK) {
+		sprintf(consoleOutput, "Ошибка открытия файла: %d\n\r", res);
+		send_uart(consoleOutput);
+		return;
+	}
+
+	int c = 0;
+	while (1) {
+		res = f_read(&file, fileBuffer, sizeof(fileBuffer), &bytesRead);
+
+		// Проверяем ошибки и конец файла
+		if (res != FR_OK || bytesRead == 0 || c == 1024) {
+			break;
+		}
+		c++;
+
+		// Обрабатываем прочитанные данные
+//		send_uart("Прочитано %d байт:\n", bytesRead);
+//		for (UINT i = 0; i < bytesRead; i++) {
+//			send_uart("%02X ", fileBuffer[i]);
+//		}
+		send_uart("\n\r");
+	}
+
+	// Закрываем файл
+	f_close(&file);
+
+	read_midi_header(fileBuffer, 1024);
+    parse_midi(fileBuffer, 1024, midiEvents, 1024);
+    uint16_t output = 0;
+    clear_shift_reg();
+
+
+    for(int i = 0; i < sizeof(midiEvents); i++){
+    	currentTime += midiEvents[i].delta_time;
+
+		while (HAL_GetTick() < currentTime) {}
+
+		MidiEvent curEvent = midiEvents[i];
+		if (curEvent.type == MIDI_NOTE_ON){
+			output = output | (1 << (curEvent.data.note.note % 48));
+			put_val_to_shift_reg(output);
+			sprintf(consoleOutput, "MIDI NOTE ON = %d ON CHANNEL = %d\n\r", curEvent.data.note.note, curEvent.data.note.channel);
+			send_uart(consoleOutput);
+			sprintf(consoleOutput, "output = %d\n\r", output);
+			send_uart(consoleOutput);
+
+		} else  if(curEvent.type == MIDI_NOTE_OFF){
+			if (output > 0)
+				output = output & (~(1 << curEvent.data.note.note % 48));
+			sprintf(consoleOutput, "MIDI NOTE OFF = %d ON CHANNEL = %d\n\r", curEvent.data.note.note, curEvent.data.note.channel);
+			send_uart(consoleOutput);
+			put_val_to_shift_reg(output);
+			sprintf(consoleOutput, "output = %d\n\r", output);
+			send_uart(consoleOutput);
+		}
+		else if (curEvent.type == MIDI_SET_TEMPO){
+			sprintf(consoleOutput, "MIDI SET TEMPO = %d\n\r", curEvent.data.tempo.tempo);
+			send_uart(consoleOutput);
+		}
+		else{
+			sprintf(consoleOutput, "%d\n\r", curEvent.type);
+			send_uart(consoleOutput);
+		}
+    }
+    clear_shift_reg();
+}
+
+void init_parser(){
+	FIL file;
+	FRESULT res;
+    UINT br, bw;         /* File read/write count */
+    Settings settings;
+    BYTE buffer[512];   /* File copy buffer */
+    char line[16];
+    char output[64];
+
+    settings.BPM = BPM;
+    settings.PPQN = PPQN;
+
+	res = f_open(&file, "settings.txt", FA_READ | FA_WRITE);
+	sprintf(output, "res = %d\n\r", res);
+	send_uart(output);
+	if (res != FR_OK) {
+		f_open(&file, "settings.txt", FA_WRITE | FA_CREATE_ALWAYS);
+		int_to_str(settings.BPM, line);
+		f_write(&file, line, strlen(line), &bw);
+
+		sprintf(line, "\n");
+		f_write(&file, line, strlen(line), &bw);
+
+		int_to_str(settings.PPQN, line);
+		f_write(&file, line, strlen(line), &bw);
+	}
+	else {
+		if (f_gets(line, sizeof line, &file)) {
+			sprintf(output, "line = %s\n\r", line);
+				send_uart(output);
+			}
+
+		if (f_gets(line, sizeof(line), &file)) {
+			settings.PPQN = (uint16_t)atoi(line);
+		}
+	}
+    f_close(&file);
+    sprintf(output, "closedd\n\r");
+    send_uart(output);
+}
+
+void int_to_str(uint16_t num, char* str) {
+    uint8_t i = 0;
+    do {
+        str[i++] = (num % 10) + '0';
+        num /= 10;
+    } while (num > 0);
+    str[i] = '\0';
+
+    // Разворачиваем строку (т.к. цифры записаны в обратном порядке)
+    for (uint8_t j = 0; j < i / 2; j++) {
+        char tmp = str[j];
+        str[j] = str[i - j - 1];
+        str[i - j - 1] = tmp;
+    }
+//    str[i+1] = '\n';
+}
+
+void edit_parser_settings(){}
 
 int parseFile(){
     FILE *fileptr;
@@ -45,45 +190,23 @@ int parseFile(){
     fclose(fileptr); // Close the file
 }
 
-void readHeader(char *buffer){
-    int offset = 0;
-    // read Chunk Id
-    for(int i = 0; i < 4; i++){
-        printf("%c", buffer[i]);
-        // printf("%02X\n", filePtr[i]);
+void read_midi_header(uint8_t* midi_data, uint32_t data_size){
+    if (data_size < sizeof(MTHD_CHUNK)) {
+        printf("Error: File too small!\n");
+        return;
     }
-    offset += 4;
-    printf("\n");
 
-    // read Chunk Size
-    // тупое чтение, оно не сработает как значение перестанет храниться в одном байте
-    int size;
-    for(int i = 4; i < 8; i++){
-        size += (int)buffer[i];
-        // printf("%d\n", (int)buffer[offset * i]);
-        // printf("%02X\n", buffer[i]);
-    }
-    printf("%d\n", size);
+    MTHD_CHUNK *header = (MTHD_CHUNK *)midi_data;
 
-    // read Format Type
-    // сейм
-    int formatType = 0;
-    for(int i = 8; i < 10; i++){
-        formatType += (int)buffer[i];
-        // printf("%d\n", (int)buffer[offset * i]);
-        // printf("%02X\n", buffer[i]);
+    // Проверяем сигнатуру "MThd"
+    if (memcmp(header->ID, "MThd", 4) != 0) {
+        printf("Error: Not a MIDI file!\n");
+        return;
     }
-    printf("%d\n", formatType);
 
-    
-    int numberOfTracks = 0;
-    for(int i = 10; i < 12; i++){
-        numberOfTracks += (int)buffer[i];
-        // printf("%d\n", (int)buffer[offset * i]);
-        // printf("%02X\n", buffer[i]);
-    }
-    printf("%d\n", numberOfTracks);
+    PPQN = header->Division;
 }
+
 
 // Парсит MIDI-данные и заполняет массив событий
 int parse_midi(uint8_t* midi_data, uint32_t data_size, MidiEvent* events, uint32_t max_events) {
@@ -106,19 +229,15 @@ int parse_midi(uint8_t* midi_data, uint32_t data_size, MidiEvent* events, uint32
         uint8_t status = midi_data[pos++];
 
         // Note On/Off события
-        if ((status & 0xF0) == MIDI_NOTE_ON || (status & 0xF0) == MIDI_NOTE_OFF) {
+        if ((status & 0xF0) == MIDI_NOTE_ON) {
             uint8_t note = midi_data[pos++];
             uint8_t velocity = midi_data[pos++];
 
             MidiEvent event;
             if(velocity == 0)
-            	event.type = MIDI_NOTE_OFF;
-            else if ((status & 0xF0) == MIDI_NOTE_ON) {
-                event.type = MIDI_NOTE_ON;
-            } else {
-                event.type = MIDI_NOTE_OFF;
-            }
+            	continue;
 
+            event.type = MIDI_NOTE_ON;
             event.data.note.channel = status & 0x0F;
             event.data.note.note = note - '0';
             event.data.note.velocity = velocity;
@@ -126,7 +245,17 @@ int parse_midi(uint8_t* midi_data, uint32_t data_size, MidiEvent* events, uint32
             event.delta_time = delta_time;
 
             events[event_count++] = event;
-            delta_time = 0;
+
+            MidiEvent noteOffEvent;
+
+            noteOffEvent.type = MIDI_NOTE_ON;
+            noteOffEvent.data.note.channel = status & 0x0F;
+            noteOffEvent.data.note.note = note - '0';
+            noteOffEvent.data.note.velocity = velocity;
+
+            noteOffEvent.delta_time = delta_time;
+
+			events[event_count++] = noteOffEvent;
         }
         // Мета-событие: Tempo (0xFF 0x51 0x03 <темп 3 байта>)
         else if (status == 0xFF && midi_data[pos] == 0x51) {
@@ -134,7 +263,7 @@ int parse_midi(uint8_t* midi_data, uint32_t data_size, MidiEvent* events, uint32
             uint8_t meta_len = midi_data[pos++];
             if (meta_len == 3) {
                 pos += 3;
-                delta_time = 0;
+//                delta_time = 0;
             }
         }
         // Пропускаем другие события (не поддерживаются)
@@ -158,12 +287,11 @@ int parse_midi(uint8_t* midi_data, uint32_t data_size, MidiEvent* events, uint32
 }
 
 void events_post_proccessing(MidiEvent* events, int events_size){
-    uint32_t current_time = 0;
-//    uint32_t artificial_delay = get_note_ticks_delay(event.data.note.note);
-    for (int i = 0; i < events_size; i++) {
-            current_time += events[i].delta_time;
-            events[i].delta_time = current_time;  // Теперь храним абсолютное время
-	}
+//    uint32_t current_time = 0;
+//    for (int i = 0; i < events_size; i++) {
+//            current_time += events[i].delta_time;
+//            events[i].delta_time = current_time;  // Теперь храним абсолютное время
+//	}
 
     // 2. Применяем задержки к нотам
 	for (int i = 0; i < events_size; i++) {
@@ -188,39 +316,13 @@ void events_post_proccessing(MidiEvent* events, int events_size){
 	}
 
 	// 4. Возвращаем delta_time к относительному формату
-	current_time = 0;
+	uint32_t current_time = 0;
 	for (int i = 0; i < events_size; i++) {
 		uint32_t new_delta = events[i].delta_time - current_time;
 		current_time = events[i].delta_time;
 		events[i].delta_time = new_delta;
 	}
-
-//    qsort(events, event_count, events_size, compare_events);
-//
-//	for(int i = 0; i < events_size; i++){
-//		if(events[i].type == MIDI_NOTE_OFF || events[i].type == MIDI_NOTE_ON){
-//			if(events[i].delta_time < 0){
-//				int indx = i;
-//				int delta_time_temp = events[i].delta_time;
-//				for(int j = indx - 1; j >= 0; j++){
-//					MidiSwap(events, indx, j);
-//					indx--;
-//					if(events[indx].delta_time >=0)
-//						break;
-//				}
-//			}
-//		}
-//	}
 }
-
-//void MidiSwap(MidiEvent* events, int i, int j){
-//	MidiEvent temp = events[i];
-//	int32_t diff = events[j].delta_time + temp.delta_time;
-//	temp.delta_time = diff;
-//	events[j].delta_time -= diff;
-//	events[i] = events[j];
-//	events[j] = temp;
-//}
 
 void AddDelayForAllExcept(int delay, int except, MidiEvent* events, int events_size){
 	for(int i = 0; i < events_size; i++){
@@ -243,13 +345,12 @@ int adjust_delta_time(MidiEvent note){
 
 int get_note_ticks_delay(uint8_t note){
 	NoteDelay delays[] = {
-		{0, 300},
-		{1, 500},
+		{0, 100},
+		{1, 200},
 		{2, 800}
 	};
 	if(note > 2  || note < 0)
 		return 0;
-	uint32_t delayVal = delays[note].delta_time;
 	int result = count_ticks_of_delay(delays[note].delta_time);
 	return result;
 }
