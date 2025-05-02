@@ -11,7 +11,7 @@ uint16_t PPQN = 500;
 const uint8_t BPM = 120;
 const float TEMPO_MKS = 500000;
 
-void test_midi_play(){
+void play_midi(char* filename){
     uint32_t currentTime = 0; // Текущее время в тиках
 
     FIL file;
@@ -24,7 +24,7 @@ void test_midi_play(){
 	MidiEvent midiEvents[100];
 
 
-	res = f_open(&file, "random.mid", FA_READ);
+	res = f_open(&file, filename, FA_READ);
 	if (res != FR_OK) {
 		sprintf(consoleOutput, "Ошибка открытия файла: %d\n\r", res);
 		send_uart(consoleOutput);

@@ -39,7 +39,7 @@ typedef struct {
 	uint32_t delta_time;
 } NoteDelay;
 
-void test_midi_play();
+void play_midi(char* filename);
 void init_parser();
 void events_post_proccessing(MidiEvent* events, int events_size);
 void read_midi_header(uint8_t* midi_data, uint32_t data_size);

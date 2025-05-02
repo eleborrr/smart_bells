@@ -22,11 +22,14 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include "ds3231.h"
 #include "fatfs_sd.h"
 #include "string.h"
 #include "stdlib.h"
 #include "midi.h"
 #include "flash_service.h"
+#include "esp.h"
+#include "at_parser.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -45,11 +48,14 @@
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
+I2C_HandleTypeDef hi2c1;
+
 SPI_HandleTypeDef hspi3;
 
 TIM_HandleTypeDef htim2;
 
 UART_HandleTypeDef huart4;
+UART_HandleTypeDef huart3;
 
 /* USER CODE BEGIN PV */
 
@@ -61,6 +67,8 @@ static void MX_GPIO_Init(void);
 static void MX_TIM2_Init(void);
 static void MX_SPI3_Init(void);
 static void MX_UART4_Init(void);
+static void MX_I2C1_Init(void);
+static void MX_USART3_UART_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -108,6 +116,32 @@ UINT br, bw; // file read/write count
 FATFS *pfs;
 DWORD fre_clust;
 uint32_t total, free_space;
+
+/* wifi parser state related variables*/
+char byteArrayBuf[2048] = "";
+void byteArrayToString(uint8_t *p, uint8_t length){
+	for(int i = 0; i < length; i++	){
+		byteArrayBuf[i] = *p;
+		p++;
+	}
+	byteArrayBuf[length] = 0;
+}
+
+#define MAX_DATA_LENGTH 1024
+char buf_rx[MAX_DATA_LENGTH] = "";
+extern enum State state;
+CommandMeta meta;
+
+void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size) {
+  if (huart == &huart3) {
+    parse(buf_rx, Size, &meta);
+    start_receive(&huart3, buf_rx, sizeof(buf_rx));
+  }
+}
+
+/* */
+
+extern TIME time;
 
 /* to send the data to the uart */
 
@@ -188,7 +222,7 @@ int main(void)
   HAL_Init();
 
   /* USER CODE BEGIN Init */
-  shift_reg_init();
+
   /* USER CODE END Init */
 
   /* Configure the system clock */
@@ -204,9 +238,15 @@ int main(void)
   MX_FATFS_Init();
   MX_SPI3_Init();
   MX_UART4_Init();
+  MX_I2C1_Init();
+  MX_USART3_UART_Init();
   /* USER CODE BEGIN 2 */
-  send_uart ("Lift off\n\r");
   /* Mount SD Card*/
+
+  send_uart ("Lift off\n\r");
+  shift_reg_init();
+  init_esp(0);
+
   fresult = f_mount(&fs, "", 0);
   if (fresult != FR_OK) send_uart ("error in mounting SD CARD ... \n\r");
   else send_uart("SD CARD mounted successfully...\n\r");
@@ -223,9 +263,62 @@ int main(void)
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
+
+  char response_buf[2048] = ""; // буффер для ответа на AT команды
+
+  HAL_UARTEx_ReceiveToIdle_IT(&huart3, (uint8_t*)buf_rx, 100);
   while (1)
   {
-	  HAL_Delay(1);
+      if (meta.command != NONE) {
+          switch(state) {
+              case IDLE:
+                  if (meta.command == CONNECT) {
+                      // TODO добавить список подключенных клиентов
+                      // и стейт машину в отдельный метод + переходы в отдельные методы
+                      sprintf(response_buf, "CLIENT %d CONNECTED\r\n", meta.client_num);
+                      transmit_to_client(response_buf, meta.client_num);
+                      meta.command = NONE;
+                      state = CONNECTED;
+                  }
+                  break;
+
+              case CONNECTED:
+                  sprintf(response_buf, "In connected state\r\n");
+                  transmit_to_client(response_buf, meta.client_num);
+                  if (meta.command == DATA) {
+                	  sprintf(response_buf, "Received data in connected state\r\n");
+                	  transmit_to_client(response_buf, meta.client_num);
+                	  state = DATA_HANDLING;
+                  }
+                  break;
+
+              case DATA_HANDLING:
+//            	  sprintf(response_buf, "In data handling state\r\n");
+//            	  transmit_to_client(response_buf, meta.client_num);
+                  byteArrayToString(meta.data, meta.data_length);
+                  sprintf(response_buf, "Handling data: [meta.data_length: %d] \r\n", meta.data_length);
+
+                  transmit_to_client(response_buf, meta.client_num);
+                  meta.command = NONE;
+                  state = CONNECTED;
+                  break;
+
+              case TRASH:
+                  sprintf(response_buf, "Received trash\r\n");
+                  transmit_to_client(response_buf, meta.client_num);
+                  meta.command = NONE;
+                  state = CONNECTED;
+                  break;
+
+              case DISCONNECT:
+                  sprintf(response_buf, "Client %d Disconnected\r\n", meta.client_num);
+                  transmit_to_client(response_buf, meta.client_num);
+                  meta.command = NONE;
+                  state = IDLE;
+          }
+          memset(response_buf, 0, 200);
+      }
+      HAL_Delay(1);
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -276,6 +369,40 @@ void SystemClock_Config(void)
   {
     Error_Handler();
   }
+}
+
+/**
+  * @brief I2C1 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_I2C1_Init(void)
+{
+
+  /* USER CODE BEGIN I2C1_Init 0 */
+
+  /* USER CODE END I2C1_Init 0 */
+
+  /* USER CODE BEGIN I2C1_Init 1 */
+
+  /* USER CODE END I2C1_Init 1 */
+  hi2c1.Instance = I2C1;
+  hi2c1.Init.ClockSpeed = 100000;
+  hi2c1.Init.DutyCycle = I2C_DUTYCYCLE_2;
+  hi2c1.Init.OwnAddress1 = 0;
+  hi2c1.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
+  hi2c1.Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;
+  hi2c1.Init.OwnAddress2 = 0;
+  hi2c1.Init.GeneralCallMode = I2C_GENERALCALL_DISABLE;
+  hi2c1.Init.NoStretchMode = I2C_NOSTRETCH_DISABLE;
+  if (HAL_I2C_Init(&hi2c1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN I2C1_Init 2 */
+
+  /* USER CODE END I2C1_Init 2 */
+
 }
 
 /**
@@ -395,6 +522,39 @@ static void MX_UART4_Init(void)
 }
 
 /**
+  * @brief USART3 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_USART3_UART_Init(void)
+{
+
+  /* USER CODE BEGIN USART3_Init 0 */
+
+  /* USER CODE END USART3_Init 0 */
+
+  /* USER CODE BEGIN USART3_Init 1 */
+
+  /* USER CODE END USART3_Init 1 */
+  huart3.Instance = USART3;
+  huart3.Init.BaudRate = 115200;
+  huart3.Init.WordLength = UART_WORDLENGTH_8B;
+  huart3.Init.StopBits = UART_STOPBITS_1;
+  huart3.Init.Parity = UART_PARITY_NONE;
+  huart3.Init.Mode = UART_MODE_TX_RX;
+  huart3.Init.HwFlowCtl = UART_HWCONTROL_NONE;
+  huart3.Init.OverSampling = UART_OVERSAMPLING_16;
+  if (HAL_UART_Init(&huart3) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN USART3_Init 2 */
+
+  /* USER CODE END USART3_Init 2 */
+
+}
+
+/**
   * @brief GPIO Initialization Function
   * @param None
   * @retval None
@@ -408,6 +568,7 @@ static void MX_GPIO_Init(void)
   /* GPIO Ports Clock Enable */
   __HAL_RCC_GPIOH_CLK_ENABLE();
   __HAL_RCC_GPIOA_CLK_ENABLE();
+  __HAL_RCC_GPIOB_CLK_ENABLE();
   __HAL_RCC_GPIOD_CLK_ENABLE();
   __HAL_RCC_GPIOC_CLK_ENABLE();
 
