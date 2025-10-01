@@ -1,0 +1,5 @@
+../Core/Server/Src/list.c:7:7:get_next_list	24	static
+../Core/Server/Src/list.c:15:6:free_list	16	static
+../Core/Server/Src/list.c:19:6:list_add	16	static
+../Core/Server/Src/list.c:23:6:list_list_copy_to	24	static
+../Core/Server/Src/list.c:27:6:list_copy_to	32	static

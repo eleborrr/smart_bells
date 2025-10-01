@@ -1,0 +1,4 @@
+schedule_handlers.c:3:7:handle_get_schedules	2
+schedule_handlers.c:18:8:handle_add_schedule	1
+schedule_handlers.c:23:8:handle_edit_schedule	1
+schedule_handlers.c:28:8:handle_delete_schedule	1

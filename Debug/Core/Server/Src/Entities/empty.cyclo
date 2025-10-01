@@ -1,0 +1,3 @@
+empty.c:4:6:serialize_empty	1
+empty.c:7:6:deserialize_empty	1
+empty.c:9:6:free_empty	1

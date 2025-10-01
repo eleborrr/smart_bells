@@ -1,0 +1,5 @@
+bell_settings_handlers.c:4:7:handle_get_bell_settings	2
+bell_settings_handlers.c:18:8:handle_try_single_bell	1
+bell_settings_handlers.c:29:8:handle_compare_two_bells	2
+bell_settings_handlers.c:72:8:handle_save_bell_settings	2
+bell_settings_handlers.c:81:6:sort_bells_by_delay	2

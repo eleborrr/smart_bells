@@ -1,0 +1,2 @@
+../Core/Server/Src/server.c:4:6:do_not_free	16	static
+../Core/Server/Src/server.c:6:6:init_server	16	static
