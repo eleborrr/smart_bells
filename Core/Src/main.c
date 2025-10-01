@@ -278,6 +278,7 @@ int main(void)
   {
 	  handle_command();
 	  handle_packet();
+    handle_send_buffer();
 	  send_time();
   }
 
