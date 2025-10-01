@@ -1,6 +1,0 @@
-../Core/Server/Src/Handlers/file_handlers.c:4:7:handle_get_files	80	static
-../Core/Server/Src/Handlers/file_handlers.c:16:8:handle_add_file	16	static
-../Core/Server/Src/Handlers/file_handlers.c:22:8:handle_edit_file	16	static
-../Core/Server/Src/Handlers/file_handlers.c:27:7:handle_play_file	16	static
-../Core/Server/Src/Handlers/file_handlers.c:32:7:handle_delete_file	16	static
-../Core/Server/Src/Handlers/file_handlers.c:37:6:serialize_strings_list	16	static

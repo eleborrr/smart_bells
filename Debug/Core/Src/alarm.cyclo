@@ -1,4 +1,0 @@
-alarm.c:37:6:initAlarm	2
-alarm.c:49:6:saveAlarm	2
-alarm.c:60:6:checkAlarmsNonBlocking	7
-alarm.c:85:6:processAlarm	2

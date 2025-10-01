@@ -1,6 +1,0 @@
-../Core/Server/Src/esp.c:7:9:init_esp	1672	static
-../Core/Server/Src/esp.c:57:6:transmit_string_at	16	static
-../Core/Server/Src/esp.c:61:6:transmit_at	16	static
-../Core/Server/Src/esp.c:67:6:receive_at_answer	16	static
-../Core/Server/Src/esp.c:74:6:disconnecting_the_client	48	static
-../Core/Server/Src/esp.c:81:6:transmit_to_client	1064	static

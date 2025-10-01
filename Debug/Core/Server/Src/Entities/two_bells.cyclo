@@ -1,3 +1,0 @@
-two_bells.c:3:6:serialize_two_bells	1
-two_bells.c:9:6:deserialize_two_bells	1
-two_bells.c:14:6:free_two_bells	1

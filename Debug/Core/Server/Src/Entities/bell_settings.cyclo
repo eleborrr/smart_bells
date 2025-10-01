@@ -1,5 +1,0 @@
-bell_settings.c:3:6:serialize_bell_settings	1
-bell_settings.c:11:6:deserialize_bell_settings	1
-bell_settings.c:18:6:free_bell_settings	1
-bell_settings.c:22:6:serialize_bell_settings_list	1
-bell_settings.c:26:6:deserialize_bell_settings_list	1

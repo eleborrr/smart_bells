@@ -1,9 +1,0 @@
-buffer.c:7:7:init_node	2
-buffer.c:15:6:free_node	1
-buffer.c:19:9:init_buf	1
-buffer.c:28:6:free_buf	2
-buffer.c:37:6:buffer_append	2
-buffer.c:49:6:buffer_drop_first	6
-buffer.c:68:6:start_enumerator	2
-buffer.c:74:9:buffer_enumerator_move_next	4
-buffer.c:88:7:buffer_enumerator_current	1

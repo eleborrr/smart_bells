@@ -1,3 +1,0 @@
-../Core/Server/Src/Entities/file_entity.c:3:6:deserialize_file_info	16	static
-../Core/Server/Src/Entities/file_entity.c:8:6:serialize_file_info	24	static
-../Core/Server/Src/Entities/file_entity.c:14:6:free_file_info	16	static

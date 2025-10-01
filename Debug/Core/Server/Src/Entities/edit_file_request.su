@@ -1,3 +1,0 @@
-../Core/Server/Src/Entities/edit_file_request.c:3:6:deserialize_edit_file	16	static
-../Core/Server/Src/Entities/edit_file_request.c:8:6:serialize_edit_file	24	static
-../Core/Server/Src/Entities/edit_file_request.c:14:6:free_edit_file	16	static

@@ -1,5 +1,0 @@
-../Core/Server/Src/Entities/schedule.c:3:6:deserialize_schedule	16	static
-../Core/Server/Src/Entities/schedule.c:10:6:serialize_schedule	24	static
-../Core/Server/Src/Entities/schedule.c:18:6:free_schedule	16	static
-../Core/Server/Src/Entities/schedule.c:22:6:deserialize_schedules_list	16	static
-../Core/Server/Src/Entities/schedule.c:26:6:serialize_schedules_list	16	static

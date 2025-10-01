@@ -1,6 +1,0 @@
-esp.c:7:9:init_esp	10
-esp.c:57:6:transmit_string_at	1
-esp.c:61:6:transmit_at	1
-esp.c:67:6:receive_at_answer	1
-esp.c:74:6:disconnecting_the_client	1
-esp.c:81:6:transmit_to_client	1

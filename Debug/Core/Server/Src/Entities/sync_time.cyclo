@@ -1,3 +1,0 @@
-sync_time.c:3:6:deserialize_sync_time	1
-sync_time.c:11:6:serialize_sync_time	1
-sync_time.c:20:6:free_sync_time	1
