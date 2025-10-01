@@ -13,26 +13,26 @@ extern I2C_HandleTypeDef hi2c1;
 extern TIM_HandleTypeDef htim2;
 extern TIME time;
 
-//void saveAlarmsToSD() {
-//    FRESULT res;
-//    UINT bytesWritten;
-//
-//    res = f_mount(&fs, "", 1);
-//    if(res != FR_OK) return;
-//
-//    res = f_open(&alarmFile, "alarms.dat", FA_WRITE | FA_CREATE_ALWAYS);
-//    if(res != FR_OK) {
-//        f_mount(NULL, "", 0);
-//        return;
-//    }
-//
-//    for(int i = 0; i < currentAlarmCount; i++) {
-//        f_write(&alarmFile, &alarmSchedule[i], sizeof(Alarm), &bytesWritten);
-//    }
-//
-//    f_close(&alarmFile);
-//    f_mount(NULL, "", 0);
-//}
+void saveAlarmsToSD() {
+   FRESULT res;
+   UINT bytesWritten;
+
+   res = f_mount(&fs, "", 1);
+   if(res != FR_OK) return;
+
+   res = f_open(&alarmFile, "alarms.dat", FA_WRITE | FA_CREATE_ALWAYS);
+   if(res != FR_OK) {
+       f_mount(NULL, "", 0);
+       return;
+   }
+
+   for(int i = 0; i < currentAlarmCount; i++) {
+       f_write(&alarmFile, &alarmSchedule[i], sizeof(Alarm), &bytesWritten);
+   }
+
+   f_close(&alarmFile);
+   f_mount(NULL, "", 0);
+}
 
 void initAlarm(){
 	for(int i = 0; i < 10; i++){
@@ -53,7 +53,7 @@ void saveAlarm(uint8_t day, uint8_t hour, uint8_t minute) {
         alarmSchedule[currentAlarmCount].minute = minute;
         alarmSchedule[currentAlarmCount].isActive = 1;
         currentAlarmCount++;
-//        saveAlarmsToSD();
+       saveAlarmsToSD();
     }
 }
 
@@ -77,14 +77,9 @@ void checkAlarmsNonBlocking() {
 	}
 }
 
-//        HAL_GPIO_WritePin(GPIOD, GPIO_PIN_12, GPIO_PIN_SET);
-//        send_uart("triggered alarm\n\r");
-//        HAL_Delay(5000); // Only blocks during actual alarm
-//        HAL_GPIO_WritePin(GPIOD, GPIO_PIN_12, GPIO_PIN_RESET);
-
 void processAlarm() {
     if(alarmTriggered) {
-//    	play_midi(triggeredAlarm->filename);
+   	play_midi(triggeredAlarm->filename);
         alarmTriggered = 0;
     }
 }

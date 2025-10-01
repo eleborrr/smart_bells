@@ -3,7 +3,6 @@
 #include <stdint.h>
 #include <string.h>
 #include <midi.h>
-#include <flash_service.h>
 #include "fatfs.h"
 #include "Entities/bell_settings.h"
 
@@ -74,7 +73,7 @@ uint32_t ticks_to_milliseconds(uint32_t delta_ticks, uint16_t ppqn, uint32_t tem
 void play_midi(char* filename){
 	sprintf(consoleOutput, "Начинаем считывать конфиг задержек\n\r");
 	send_uart(consoleOutput);
-//	load_note_timing_from_sd(delays, signals, NUM_NOTES);
+	load_note_timing_from_sd(delays, signals, NUM_NOTES);
 
 	sprintf(consoleOutput, "Начинаем открывать MIDI файл\n\r");
 	send_uart(consoleOutput);
@@ -149,12 +148,12 @@ void process_midi_event(MidiPlaybackContext* ctx) {
 
 		switch(current->type) {
 			case MIDI_NOTE_ON:
-				ctx->output_state |= (1 << (current->data.note.note - BASE_NOTE)); // +6 HARDCODE
+				ctx->output_state |= (1 << (current->data.note.note - BASE_NOTE));
 				sprintf(consoleOutput, "Note on: %d\n\r", current->data.note.note);
 				break;
 
 			case MIDI_NOTE_OFF:
-				ctx->output_state &= ~(1 << (current->data.note.note - BASE_NOTE)); // +6 HARDCODE
+				ctx->output_state &= ~(1 << (current->data.note.note - BASE_NOTE));
 				sprintf(consoleOutput, "Note off: %d\n\r", current->data.note.note);
 				break;
 
@@ -172,8 +171,6 @@ void process_midi_event(MidiPlaybackContext* ctx) {
 	}
 	put_val_to_shift_reg(ctx->output_state);
 	ctx->current_delta_time += count_ticks(5); //TODO переводить ARR в мс и передавать как аргумент в count_ticks
-
-//    start_next_event(ctx);
 }
 
 
@@ -312,25 +309,6 @@ int parse_midi(uint8_t* midi_data, uint32_t data_size, MidiEvent* events, uint32
 	return event_count;
 }
 
-//void convert_to_absolute_time(MidiEvent* events, int count) {
-//    sprintf(consoleOutput, "[in convert_to_absolute_time with count = %u]\n\r", count);
-//	send_uart(consoleOutput);
-//    uint32_t abs_time = 0;
-//    for (int i = 0; i < count; ++i) {
-//        abs_time += events[i].delta_time;
-//        events[i].delta_time = abs_time;
-//    }
-//}
-
-void convert_to_relative_time(MidiEvent* events, int count) {
-    uint32_t last_time = 0;
-    for (int i = 0; i < count; ++i) {
-        uint32_t abs_time = events[i].delta_time;
-        events[i].delta_time = abs_time - last_time;
-        last_time = abs_time;
-    }
-}
-
 void apply_note_timing_modifications(MidiEvent* events, int count) {
     for (int i = 0; i < count; ++i) {
         if (events[i].type == MIDI_NOTE_ON) {
@@ -370,10 +348,6 @@ void events_post_proccessing(MidiEvent* events, uint32_t count) {
 	sprintf(consoleOutput, "Начинаем обрабатывать MIDI события\n\r");
 	send_uart(consoleOutput);
 
-//    convert_to_absolute_time(events, count);
-//    sprintf(consoleOutput, "Привели события к абсолютному времени\n\r");
-//	send_uart(consoleOutput);
-
     apply_note_timing_modifications(events, count);
     sprintf(consoleOutput, "Применили задержки и длительности сигналов\n\r");
 	send_uart(consoleOutput);
@@ -381,10 +355,6 @@ void events_post_proccessing(MidiEvent* events, uint32_t count) {
     qsort(events, count, sizeof(MidiEvent), compare_events_by_time);
     sprintf(consoleOutput, "Отсортировали события по абсолютному времени\n\r");
 	send_uart(consoleOutput);
-
-//    convert_to_relative_time(events, count);
-//    sprintf(consoleOutput, "Привели события к обратно к относительному времени\n\r");
-//	send_uart(consoleOutput);
 
     sprintf(consoleOutput, "Закончили обрабатывать MIDI события\n\r");
 	send_uart(consoleOutput);

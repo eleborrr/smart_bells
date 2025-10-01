@@ -64,26 +64,3 @@ uint8_t parseDataCommand(){
 uint8_t receiving = 0;
 
 enum State state = IDLE;
-//void execute(CommandMeta meta) {
-//  switch (state) {
-//  case IDLE:
-//	  if (meta.command == CONNECT) {
-//		  if(!receiving){
-//			  //send
-//			  // receiving = 1
-//			  // transmit_to_client(0, "Client {meta.client_num} connected");
-//		  }
-//		  else{
-//			  // receiving ...
-//			  state = CONNECTED;
-//			  // receiving = 0;
-//		  }
-//	  }
-//	  break;
-//  case CONNECTED:
-//	  break;
-//  }
-//  char exec_buf[500] = "";
-//  sprintf(exec_buf, "command: %d, client_num: %d, data_length: %d\r\n", meta.command, meta.client_num, meta.data_length);
-//  HAL_UART_Transmit(&huart4, (uint8_t *)exec_buf, strlen(exec_buf), -1);
-//}
