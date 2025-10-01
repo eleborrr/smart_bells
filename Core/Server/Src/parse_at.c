@@ -1,7 +1,7 @@
 #include "parse_at.h"
 
 uint8_t parse_send_data(const uint8_t* input, CommandMeta* meta) {
-	uint8_t res = strncmp((const char*)input, ">", 1) == 0;
+	uint8_t res = strchr((const char*)input, '>') != NULL;
 	if (res) meta->command = CMD_SEND_DATA;
 	return res;
 }

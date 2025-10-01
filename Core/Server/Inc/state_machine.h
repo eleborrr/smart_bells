@@ -22,6 +22,7 @@ void start_receive(UART_HandleTypeDef *huart);
 void add_packet(Packet* packet);
 void handle_command();
 void handle_packet();
+void handle_send_buffer();
 
 void send_command(ServerEndpoint endpoint, const void* data);
 

@@ -78,14 +78,11 @@ void disconnecting_the_client(uint8_t client)
 	receive_at_answer(buf_rx, 30, 100);
 }
 
-void transmit_to_client(List* bytes, uint8_t client)
+void transmit_to_client_header(int bytes_len, uint8_t client)
 {
 	char buf_rx[BUF_LEN] = "";
 	char tmp_str[20] = {0,};
 
-	sprintf(tmp_str,"AT+CIPSEND=%u,%u\r\n", client, bytes->length);
+	sprintf(tmp_str,"AT+CIPSEND=%u,%u\r\n", client, bytes_len);
 	transmit_string_at(tmp_str);
-	receive_at_answer(buf_rx, BUF_LEN, 100);
-	transmit_at(bytes->items, bytes->length);
-	receive_at_answer(buf_rx, BUF_LEN, 100);
 }

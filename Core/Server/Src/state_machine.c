@@ -22,6 +22,7 @@ int arr_to_string(char *buf, const uint8_t *arr, uint16_t arr_len);
 void client_connect(const CommandMeta *meta, State *state);
 void client_disconnect(const CommandMeta *meta, State *state);
 void handle_data(const CommandMeta *meta, State *state);
+void send_data_from_buffer(const CommandMeta *meta, State *state);
 
 State currentState = STATE_IDLE;
 
@@ -32,9 +33,11 @@ typedef struct {
 } Transition;
 
 Transition fms[] = {
-		{ STATE_IDLE, CMD_CONNECT, client_connect },
-		{ STATE_CONNECTED, CMD_DISCONNECT, client_disconnect },
-		{ STATE_CONNECTED, CMD_DATA, handle_data },
+		{ .state = STATE_IDLE, .command = CMD_CONNECT, .action = client_connect },
+		{ .state = STATE_CONNECTED, .command = CMD_DISCONNECT, .action = client_disconnect },
+		{ .state = STATE_CONNECTED, .command = CMD_DATA, .action = handle_data },
+		{ .state = STATE_SEND_DATA, .command = CMD_SEND_DATA, .action = send_data_from_buffer },
+		{ .state = STATE_SEND_DATA, .command = CMD_DISCONNECT, .action = client_disconnect },
 };
 const int fms_len = sizeof(fms) / sizeof(fms[0]);
 
@@ -80,11 +83,31 @@ void client_disconnect(const CommandMeta *meta, State *state) {
 	*state = STATE_IDLE;
 }
 
-Buffer *bytes, *packets;
+Buffer *bytes, *packets, *send_buffer;
+
+void send_data_from_buffer(const CommandMeta *meta, State *state) {
+	BufferEnumerator e;
+	start_enumerator(&e, send_buffer);
+	uint32_t bytes_length = 0;
+	for (uint8_t i = 0; i < 4 && buffer_enumerator_move_next(&e); i++) {
+		uint8_t cur = *(uint8_t*)buffer_enumerator_current(&e);
+		bytes_length |= cur << (i * 8);
+	}
+	List* bytes = get_next_list(sizeof(uint8_t));
+	for (uint8_t i = 0; i < bytes_length && buffer_enumerator_move_next(&e); i++) {
+		uint8_t* cur = buffer_enumerator_current(&e);
+		list_add(bytes, cur);
+	}
+	transmit_at(bytes->items, bytes->length);
+	buffer_drop_first(send_buffer, 4 + bytes_length);
+	free_list(bytes);
+	*state = STATE_CONNECTED;
+}
 
 void init_state_machine() {
 	bytes = init_buf(VAL_NODE_SIZE, sizeof(uint8_t));
 	packets = init_buf(STRUCT_NODE_SIZE, sizeof(Packet));
+	send_buffer = init_buf(VAL_NODE_SIZE, sizeof(uint8_t));
 }
 
 void handle_data(const CommandMeta *meta, State *state) {
@@ -95,14 +118,35 @@ void handle_data(const CommandMeta *meta, State *state) {
 	parse_packets(bytes, packets);
 }
 
-void send_command_by_endpoint_meta_data(EndpointMeta* endpoint_meta, ServerEndpoint endpoint, const void* data) {
+void handle_send_buffer() {
+	if (currentState != STATE_CONNECTED || send_buffer->length == 0) return;
+	BufferEnumerator e;
+	start_enumerator(&e, send_buffer);
+	uint32_t bytes_length = 0;
+	for (uint8_t i = 0; i < 4 && buffer_enumerator_move_next(&e); i++) {
+		uint8_t cur = *(uint8_t*)buffer_enumerator_current(&e);
+		bytes_length |= cur << (i * 8);
+	}
+	transmit_to_client_header(bytes_length, 0);
+	currentState = STATE_SEND_DATA;
+}
+
+void send_command_by_endpoint_meta_data(const EndpointMeta* endpoint_meta, ServerEndpoint endpoint, const void* data) {
 	Packet response_packet;
 	response_packet.request = endpoint;
 	response_packet.payload = get_next_list(sizeof(uint8_t));
 	endpoint_meta->serialize_response(response_packet.payload, data);
 
 	List* bytes = get_packet_bytes(&response_packet);
-	transmit_to_client(bytes, 0);
+	for (uint8_t i = 0; i < 4; i++) {
+		uint8_t cur_part = bytes->length >> (i * 8);
+		buffer_append(send_buffer, &cur_part);
+	}
+	uint8_t* cur;
+	list_foreach(bytes, cur) {
+		buffer_append(send_buffer, cur);
+	}
+//	transmit_to_client(bytes, 0);
 	if (bytes) free_list(bytes);
 	free_packet(&response_packet);
 }
@@ -135,10 +179,6 @@ void handle_packet() {
 
 void send_command(ServerEndpoint endpoint, const void* data) {
 	if (currentState != STATE_CONNECTED) return;
-
-	if (endpoint == SEP_SERVER_TIME){
-
-	}
 
 	const EndpointMeta *endpoint_meta = get_endpoint_meta(endpoint);
 	if (endpoint_meta)

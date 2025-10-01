@@ -4,6 +4,7 @@
 #include "Entities/schedule.h"
 #include "Entities/edit_schedule.h"
 #include "Entities/empty.h"
+#include "stdio.h"
 
 List* handle_get_schedules(const Empty* request);
 Empty* handle_add_schedule(const Schedule* request);
