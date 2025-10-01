@@ -29,4 +29,11 @@
 		<nature>org.eclipse.cdt.managedbuilder.core.managedBuildNature</nature>
 		<nature>org.eclipse.cdt.managedbuilder.core.ScannerConfigNature</nature>
 	</natures>
+	<linkedResources>
+		<link>
+			<name>Src</name>
+			<type>2</type>
+			<location>/home/elebor/STM32CubeIDE/workspace_1.12.0/F407_start/Core/Server/Src</location>
+		</link>
+	</linkedResources>
 </projectDescription>

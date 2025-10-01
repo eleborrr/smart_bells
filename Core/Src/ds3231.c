@@ -1,29 +1,45 @@
-/*
- *
- * ds3231.c
- * Author: PapaGrey
- *
- */
-
 #include "ds3231.h"
+#include "state_machine.h"
+#include "Entities/sync_time.h"
 TIME time;
 extern I2C_HandleTypeDef hi2c1;
 uint8_t get_time[7];
-//#include "debugger.h"
 
-// Convert normal decimal numbers to binary coded decimal
+/**
+ * @brief Decodes the raw binary value stored in registers to decimal format.
+ * @param bin Binary-coded decimal value retrieved from register, 0 to 255.
+ * @return Decoded decimal value.
+ */
+
+TIME prev_sent_time = {0,};
+
+uint8_t should_send_time() {
+  uint8_t res = (time.seconds != prev_sent_time.seconds ||
+      time.minutes != prev_sent_time.minutes ||
+      time.hour != prev_sent_time.hour ||
+      time.dayofmonth != prev_sent_time.dayofmonth ||
+      time.month != prev_sent_time.month ||
+      time.year != prev_sent_time.year);
+  if (res){
+	  prev_sent_time = time;
+  }
+  return res;
+}
+
+
+
 
 uint8_t decToBcd(int val)
 {
   return (uint8_t)( (val/10*16) + (val%10) );
 }
-// Convert binary coded decimal to normal decimal numbers
+
 int bcdToDec(uint8_t val)
 {
   return (int)( (val/16*10) + (val%16) );
 }
 
-void Set_Time (uint8_t sec, uint8_t min, uint8_t hour, uint8_t dow, uint8_t dom, uint8_t month, uint8_t year)
+void DS3231_Set_Time (uint8_t sec, uint8_t min, uint8_t hour, uint8_t dow, uint8_t dom, uint8_t month, uint8_t year)
 {
 	uint8_t set_time[7];
 	set_time[0] = decToBcd(sec);
@@ -32,12 +48,14 @@ void Set_Time (uint8_t sec, uint8_t min, uint8_t hour, uint8_t dow, uint8_t dom,
 	set_time[3] = decToBcd(dow);
 	set_time[4] = decToBcd(dom);
 	set_time[5] = decToBcd(month);
-	set_time[6] = decToBcd(year);
+	set_time[6] = decToBcd(year % 100);
 
-	HAL_I2C_Mem_Write(&hi2c1, DS3231_ADDRESS, 0x00, 1, set_time, 7, 1000);
+	uint8_t ret;
+
+	ret = HAL_I2C_Mem_Write(&hi2c1, DS3231_ADDRESS, 0x00, 1, set_time, 7, 1000);
 }
 
-void Get_Time (void)
+void DS3231_Get_Time (void)
 {
 //	HAL_I2C_Master_Receive_IT(&hi2c1, DS3231_ADDRESS, get_time, 7);
 	HAL_I2C_Mem_Read(&hi2c1, DS3231_ADDRESS, 0x00, 1, get_time, 7, 1000);
@@ -55,7 +73,8 @@ void Get_Time (void)
 	time.year = bcdToDec(get_time[6]);
 }
 
-float Get_Temp (void)
+
+float DS3231_Get_Temp (void)
 {
 	uint8_t temp[2];
 

@@ -1,0 +1,3 @@
+../Core/Server/Src/Entities/sync_time.c:3:6:deserialize_sync_time	16	static
+../Core/Server/Src/Entities/sync_time.c:11:6:serialize_sync_time	24	static
+../Core/Server/Src/Entities/sync_time.c:20:6:free_sync_time	16	static

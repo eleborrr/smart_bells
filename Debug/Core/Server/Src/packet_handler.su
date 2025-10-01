@@ -1,0 +1,3 @@
+../Core/Server/Src/packet_handler.c:7:9:get_next_packet	16	static
+../Core/Server/Src/packet_handler.c:14:6:parse_packets	56	static
+../Core/Server/Src/packet_handler.c:44:7:get_packet_bytes	24	static

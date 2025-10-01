@@ -28,8 +28,8 @@
 #include "stdlib.h"
 #include "midi.h"
 #include "flash_service.h"
-#include "esp.h"
-#include "at_parser.h"
+#include "server.h"
+//#include "handlers/time_handlers.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -53,6 +53,7 @@ I2C_HandleTypeDef hi2c1;
 SPI_HandleTypeDef hspi3;
 
 TIM_HandleTypeDef htim2;
+TIM_HandleTypeDef htim3;
 
 UART_HandleTypeDef huart4;
 UART_HandleTypeDef huart3;
@@ -67,8 +68,9 @@ static void MX_GPIO_Init(void);
 static void MX_TIM2_Init(void);
 static void MX_SPI3_Init(void);
 static void MX_UART4_Init(void);
-static void MX_I2C1_Init(void);
 static void MX_USART3_UART_Init(void);
+static void MX_I2C1_Init(void);
+static void MX_TIM3_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -102,62 +104,47 @@ void clear_shift_reg(){
 	HAL_GPIO_WritePin(CLK2_GPIO_Port, CLK2_Pin, 0);
 }
 
+FATFS fs;
+FIL fil;
+FILINFO finfo;
+FRESULT fresult;
+char buffer[1024];
 
-FATFS fs; // File system
-FIL fil; // file
-FILINFO finfo;    // File information object
-FRESULT fresult; // to store the result
-char buffer[1024]; // to store data
+UINT br, bw;
 
-UINT br, bw; // file read/write count
-
-/* capacity related variable */
-
-FATFS *pfs;
-DWORD fre_clust;
-uint32_t total, free_space;
-
-/* wifi parser state related variables*/
-char byteArrayBuf[2048] = "";
-void byteArrayToString(uint8_t *p, uint8_t length){
-	for(int i = 0; i < length; i++	){
-		byteArrayBuf[i] = *p;
-		p++;
-	}
-	byteArrayBuf[length] = 0;
-}
-
-#define MAX_DATA_LENGTH 1024
-char buf_rx[MAX_DATA_LENGTH] = "";
-extern enum State state;
-CommandMeta meta;
-
-void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size) {
-  if (huart == &huart3) {
-    parse(buf_rx, Size, &meta);
-    start_receive(&huart3, buf_rx, sizeof(buf_rx));
-  }
-}
-
-/* */
-
+MidiPlaybackContext playback_ctx;
 extern TIME time;
 
-/* to send the data to the uart */
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
+	if (htim == &htim3){
+        DS3231_Get_Time();
+        send_time();
+        checkAlarmsNonBlocking();
+        processAlarm();
+	}
+    if (htim == &htim2) {
+//    	char dbg[128];
+//    	static uint32_t last_time = 0;
+//    	uint32_t now = HAL_GetTick();  // in ms
+//    	sprintf(dbg, "Time last callback: %lu ms\r\n", now - last_time);
+//    	last_time = now;
+//		send_uart(dbg);
+		process_midi_event(&playback_ctx);
+    }
+}
 
 void send_uart (char *string){
 	uint8_t len = strlen(string);
-	HAL_UART_Transmit(&huart4, (uint8_t *) string , len, -1); // transmit in blocking mode
+	HAL_UART_Transmit(&huart4, (uint8_t *) string , len, -1);
 }
 
-/* to find the size of data in the buffer */
 int bufsize( char *buf){
 	int i=0;
 	while(*buf++ != '\0') i++;
 	return i;
 }
 
-void bufclear (void) // clear buffer
+void bufclear (void)
 {
 	for (int i = 0; i < 1024; i++){
 		buffer[i] = '\0';
@@ -204,6 +191,21 @@ void get_sd_dirs(char *path){
 	  }
 	}
 }
+
+void send_time() {
+  if (should_send_time()) {
+//	  send_uart("send time\r\n");
+	SyncTime cur;
+	cur.day = time.dayofmonth;
+	cur.month = time.month;
+	cur.year = time.year + 2000; // Точно проверь пж
+	cur.hours = time.hour;
+	cur.minutes = time.minutes;
+	cur.seconds = time.seconds;
+	send_command(SEP_SERVER_TIME, &cur);
+  }
+}
+
 /* USER CODE END 0 */
 
 /**
@@ -238,91 +240,54 @@ int main(void)
   MX_FATFS_Init();
   MX_SPI3_Init();
   MX_UART4_Init();
-  MX_I2C1_Init();
   MX_USART3_UART_Init();
+  MX_I2C1_Init();
+  MX_TIM3_Init();
   /* USER CODE BEGIN 2 */
-  /* Mount SD Card*/
 
+  HAL_Delay(1000);
   send_uart ("Lift off\n\r");
   shift_reg_init();
-  init_esp(0);
 
   fresult = f_mount(&fs, "", 0);
   if (fresult != FR_OK) send_uart ("error in mounting SD CARD ... \n\r");
   else send_uart("SD CARD mounted successfully...\n\r");
-  /* Read dirs from sd card*/
-//  test_midi_play();
-  init_parser();
-  get_sd_dirs("");
-
-  /* Unmount SDCARD */
-  fresult = f_mount(NULL, "/", 1);
-  if (fresult == FR_OK) send_uart ("SD CARD UNMOUNTED successfully...\n\r");
 
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
 
-  char response_buf[2048] = ""; // буффер для ответа на AT команды
-
-  HAL_UARTEx_ReceiveToIdle_IT(&huart3, (uint8_t*)buf_rx, 100);
+//  init_server();
+//  HAL_TIM_Base_Start_IT(&htim3);
+//  initAlarm();
+  uint signal = 30;
+  char dbg[64];
+  while(1){
+	  uint8_t byte;
+	  HAL_UART_Receive(&huart4, &byte, 1, -1);
+//	  put_val_to_shift_reg(1 << 6 | 1 << 7);
+//	  HAL_Delay(signal);
+//	  clear_shift_reg();
+//	  signal+=10;
+//	  sprintf(dbg, "signal = %d\n\r", signal);
+//	  send_uart(dbg);
+	  play_midi("two_bells8.mid");
+  }
   while (1)
   {
-      if (meta.command != NONE) {
-          switch(state) {
-              case IDLE:
-                  if (meta.command == CONNECT) {
-                      // TODO добавить список подключенных клиентов
-                      // и стейт машину в отдельный метод + переходы в отдельные методы
-                      sprintf(response_buf, "CLIENT %d CONNECTED\r\n", meta.client_num);
-                      transmit_to_client(response_buf, meta.client_num);
-                      meta.command = NONE;
-                      state = CONNECTED;
-                  }
-                  break;
+	  handle_command();
+	  handle_packet();
+	  send_time();
+  }
 
-              case CONNECTED:
-                  sprintf(response_buf, "In connected state\r\n");
-                  transmit_to_client(response_buf, meta.client_num);
-                  if (meta.command == DATA) {
-                	  sprintf(response_buf, "Received data in connected state\r\n");
-                	  transmit_to_client(response_buf, meta.client_num);
-                	  state = DATA_HANDLING;
-                  }
-                  break;
-
-              case DATA_HANDLING:
-//            	  sprintf(response_buf, "In data handling state\r\n");
-//            	  transmit_to_client(response_buf, meta.client_num);
-                  byteArrayToString(meta.data, meta.data_length);
-                  sprintf(response_buf, "Handling data: [meta.data_length: %d] \r\n", meta.data_length);
-
-                  transmit_to_client(response_buf, meta.client_num);
-                  meta.command = NONE;
-                  state = CONNECTED;
-                  break;
-
-              case TRASH:
-                  sprintf(response_buf, "Received trash\r\n");
-                  transmit_to_client(response_buf, meta.client_num);
-                  meta.command = NONE;
-                  state = CONNECTED;
-                  break;
-
-              case DISCONNECT:
-                  sprintf(response_buf, "Client %d Disconnected\r\n", meta.client_num);
-                  transmit_to_client(response_buf, meta.client_num);
-                  meta.command = NONE;
-                  state = IDLE;
-          }
-          memset(response_buf, 0, 200);
-      }
-      HAL_Delay(1);
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-  }
+
+
+  fresult = f_mount(NULL, "/", 1);
+  if (fresult == FR_OK) send_uart ("SD CARD UNMOUNTED successfully...\n\r");
   /* USER CODE END 3 */
 }
 
@@ -462,9 +427,9 @@ static void MX_TIM2_Init(void)
 
   /* USER CODE END TIM2_Init 1 */
   htim2.Instance = TIM2;
-  htim2.Init.Prescaler = 999;
+  htim2.Init.Prescaler = 83;
   htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim2.Init.Period = 9999;
+  htim2.Init.Period = 4999;
   htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_Base_Init(&htim2) != HAL_OK)
@@ -485,6 +450,51 @@ static void MX_TIM2_Init(void)
   /* USER CODE BEGIN TIM2_Init 2 */
 
   /* USER CODE END TIM2_Init 2 */
+
+}
+
+/**
+  * @brief TIM3 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM3_Init(void)
+{
+
+  /* USER CODE BEGIN TIM3_Init 0 */
+
+  /* USER CODE END TIM3_Init 0 */
+
+  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+
+  /* USER CODE BEGIN TIM3_Init 1 */
+
+  /* USER CODE END TIM3_Init 1 */
+  htim3.Instance = TIM3;
+  htim3.Init.Prescaler = 1249;
+  htim3.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim3.Init.Period = 65535;
+  htim3.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim3.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim3) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
+  if (HAL_TIM_ConfigClockSource(&htim3, &sClockSourceConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim3, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM3_Init 2 */
+
+  /* USER CODE END TIM3_Init 2 */
 
 }
 

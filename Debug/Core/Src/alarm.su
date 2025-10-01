@@ -1,0 +1,4 @@
+../Core/Src/alarm.c:37:6:initAlarm	56	static
+../Core/Src/alarm.c:49:6:saveAlarm	16	static
+../Core/Src/alarm.c:60:6:checkAlarmsNonBlocking	120	static
+../Core/Src/alarm.c:85:6:processAlarm	4	static

@@ -1,0 +1,3 @@
+edit_schedule.c:3:6:deserialize_edit_schedule	1
+edit_schedule.c:8:6:serialize_edit_schedule	1
+edit_schedule.c:14:6:free_edit_schedule	1

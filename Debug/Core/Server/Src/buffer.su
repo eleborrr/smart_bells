@@ -1,0 +1,9 @@
+../Core/Server/Src/buffer.c:7:7:init_node	24	static
+../Core/Server/Src/buffer.c:15:6:free_node	16	static
+../Core/Server/Src/buffer.c:19:9:init_buf	24	static
+../Core/Server/Src/buffer.c:28:6:free_buf	16	static
+../Core/Server/Src/buffer.c:37:6:buffer_append	24	static
+../Core/Server/Src/buffer.c:49:6:buffer_drop_first	24	static
+../Core/Server/Src/buffer.c:68:6:start_enumerator	16	static
+../Core/Server/Src/buffer.c:74:9:buffer_enumerator_move_next	16	static
+../Core/Server/Src/buffer.c:88:7:buffer_enumerator_current	16	static
