@@ -1,0 +1,67 @@
+# STM32CubeIDE specific files
+*.launch
+.settings/
+*.cproject
+*.project
+.mxproject
+.projectlock
+
+# Build outputs
+Debug/
+Release/
+build/
+*.elf
+*.hex
+*.bin
+*.map
+*.lst
+*.axf
+
+# Object files and intermediates
+*.o
+*.su
+*.d
+*.crf
+*.lnp
+*.dep
+*.iex
+*.tra
+*.htm
+*.sct
+
+# Precompiled headers
+*.gch
+*.pch
+
+# Libraries
+*.a
+*.lib
+
+# Debug files
+*.jdebug
+
+# IDE temporary files
+*~
+*.tmp
+*.bak
+*.swp
+*.swo
+
+# Dependencies folders
+/.metadata/
+
+# System files
+.DS_Store
+Thumbs.db
+
+# Local configuration files (should not be committed)
+/.vs/
+/.vscode/
+/CLion/
+/iar/
+
+# CubeIDE workspace files
+/.recommenders/
+
+# Compiler specific
+/arm-none-eabi/
